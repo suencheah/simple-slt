@@ -1,5 +1,5 @@
 fastapi
 uvicorn
-tensorflow
+tensorflow-cpu
 tensorflow-hub
 python-multipart
