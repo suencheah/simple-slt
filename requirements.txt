@@ -1,5 +1,5 @@
 fastapi
 uvicorn
-tensorflow==2.13.0
+tensorflow
 tensorflow-hub
 python-multipart
