@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign Language to Speech Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.10.0/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.min.js"></script>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        max-width: 900px;
+        width: 100%;
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 30px;
+        font-size: 2.5em;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .camera-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 30px;
+      }
+
+      .camera-container {
+        position: relative;
+        border: 3px solid #667eea;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      #videoElement {
+        width: 640px;
+        height: 480px;
+        object-fit: cover;
+        display: block;
+      }
+
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(102, 126, 234, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2em;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      .controls {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      button {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .primary-btn {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+      }
+
+      .primary-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+
+      .secondary-btn {
+        background: #f8f9fa;
+        color: #333;
+        border: 2px solid #667eea;
+      }
+
+      .secondary-btn:hover {
+        background: #667eea;
+        color: white;
+      }
+
+      .danger-btn {
+        background: linear-gradient(45deg, #ff6b6b, #ff5252);
+        color: white;
+      }
+
+      .danger-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+      }
+
+      .results-section {
+        margin-top: 30px;
+      }
+
+      .result-card {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 20px;
+        margin: 10px 0;
+        border-left: 5px solid #667eea;
+      }
+
+      .result-card h3 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 1.2em;
+      }
+
+      .result-text {
+        font-size: 1.1em;
+        color: #555;
+        line-height: 1.6;
+      }
+
+      .prediction-confidence {
+        background: linear-gradient(45deg, #4caf50, #45a049);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.9em;
+        font-weight: bold;
+        display: inline-block;
+        margin-top: 10px;
+      }
+
+      .status {
+        text-align: center;
+        margin: 20px 0;
+        padding: 15px;
+        border-radius: 10px;
+        font-weight: bold;
+      }
+
+      .status.loading {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+      }
+
+      .status.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      .feature-info {
+        background: #e3f2fd;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
+        border-left: 5px solid #2196f3;
+      }
+
+      .feature-info h3 {
+        color: #1976d2;
+        margin-bottom: 10px;
+      }
+
+      .feature-info ul {
+        color: #555;
+        margin-left: 20px;
+      }
+
+      .feature-info li {
+        margin: 5px 0;
+      }
+
+      @media (max-width: 768px) {
+        #videoElement {
+          width: 100%;
+          height: 300px;
+        }
+
+        .container {
+          padding: 20px;
+        }
+
+        h1 {
+          font-size: 2em;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🤟 Sign Language to Speech Converter</h1>
+
+      <div class="camera-section">
+        <div class="camera-container">
+          <video id="videoElement" autoplay muted></video>
+          <div class="overlay" id="overlay">Click "Start Camera" to begin</div>
+        </div>
+
+        <div class="controls">
+          <button class="primary-btn" onclick="startCamera()">
+            📹 Start Camera
+          </button>
+          <button class="secondary-btn" onclick="captureSign()">
+            ✋ Capture Sign
+          </button>
+          <button class="primary-btn" onclick="toggleContinuous()">
+            🔄 Toggle Continuous
+          </button>
+          <button class="danger-btn" onclick="stopCamera()">
+            ⏹️ Stop Camera
+          </button>
+        </div>
+      </div>
+
+      <div id="status" class="status loading" style="display: none">
+        Loading model...
+      </div>
+
+      <div class="results-section">
+        <div class="result-card">
+          <h3>🎤 Recognized Sign:</h3>
+          <div id="recognizedText" class="result-text">
+            Ready to recognize signs...
+          </div>
+          <div
+            id="confidence"
+            class="prediction-confidence"
+            style="display: none"
+          ></div>
+        </div>
+
+        <div class="result-card">
+          <h3>💬 Speech Output:</h3>
+          <div id="speechOutput" class="result-text">
+            Speech will appear here...
+          </div>
+          <button
+            class="secondary-btn"
+            onclick="speakText()"
+            style="margin-top: 10px"
+          >
+            🔊 Speak Again
+          </button>
+        </div>
+      </div>
+
+      <div class="feature-info">
+        <h3>🌟 Features:</h3>
+        <ul>
+          <li>Real-time American Sign Language recognition</li>
+          <li>Text-to-speech conversion</li>
+          <li>Continuous monitoring mode</li>
+          <li>Confidence scoring for predictions</li>
+          <li>Mobile-friendly responsive design</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      let model = null;
+      let isModelLoaded = false;
+      let isCameraActive = false;
+      let isContinuousMode = false;
+      let currentStream = null;
+      let lastRecognizedText = "";
+      let manualCaptureRequested = false;
+      let lastSpokenText = "";
+
+      // ASL alphabet labels (you may need to adjust based on your model)
+      const aslLabels = [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "u",
+        "v",
+        "w",
+        "x",
+        "y",
+        "z",
+      ];
+
+      // Initialize the application
+      async function initializeApp() {
+        showStatus("Loading model & MediaPipe...", "loading");
+        try {
+          await loadModel();
+          await setupMediaPipeHands();
+          showStatus("Ready!", "success");
+          setTimeout(() => hideStatus(), 2000);
+        } catch (err) {
+          console.error("Initialization error:", err);
+          showStatus("Initialization failed", "error");
+        }
+      }
+
+      // Load the TensorFlow model
+      async function loadModel() {
+        try {
+          // Note: The original URL is for TensorFlow Hub (Python)
+          // For web deployment, you'd need to convert the model to TensorFlow.js format
+          // This is a placeholder for the actual model loading
+
+          // Simulating model loading (replace with actual model loading)
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
+          // For demonstration, we'll create a mock model
+          // In practice, you'd load your converted TensorFlow.js model here
+          model = {
+            /*************  ✨ Windsurf Command ⭐  *************/
+            /**
+             * Asynchronously predicts the American Sign Language (ASL) sign from the given image data.
+             *
+             * This function captures a frame from the video element, resizes it to 224x224 pixels,
+             * and sends it to a backend server for prediction. The server returns the predicted
+             * ASL sign and the confidence level of the prediction.
+             *
+             * @param {ImageData} imageData - The image data to be processed for prediction.
+             * @returns {Promise<Object>} - A promise that resolves to an object containing
+             * the predicted sign and its confidence level.
+             */
+
+            /*******  e6b573c1-79fd-4726-9ae3-0fa03b46bc16  *******/
+            predict: async (imageData) => {
+              // Create canvas to resize and draw image
+              const canvas = document.createElement("canvas");
+              canvas.width = 224;
+              canvas.height = 224;
+              const ctx = canvas.getContext("2d");
+
+              // Draw full video frame into resized canvas
+              ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+              return new Promise((resolve, reject) => {
+                canvas.toBlob((blob) => {
+                  const formData = new FormData();
+                  formData.append("file", blob, "hand.jpg");
+
+                  fetch("http://127.0.0.1:8000/predict", {
+                    method: "POST",
+                    body: formData,
+                  })
+                    .then((res) => res.json())
+                    .then((data) => {
+                      resolve({
+                        prediction: data.prediction,
+                        confidence: data.confidence,
+                      });
+                    })
+                    .catch((err) => reject(err));
+                }, "image/jpeg");
+              });
+            },
+          };
+
+          isModelLoaded = true;
+          console.log("Model loaded successfully");
+        } catch (error) {
+          console.error("Error loading model:", error);
+          throw error;
+        }
+      }
+
+      // Mock prediction function (replace with actual model prediction)
+      function mockPrediction() {
+        const randomIndex = Math.floor(Math.random() * aslLabels.length);
+        const confidence = 0.7 + Math.random() * 0.3; // Random confidence between 0.7-1.0
+
+        return {
+          prediction: aslLabels[randomIndex],
+          confidence: confidence,
+        };
+      }
+
+      // Start camera
+      async function startCamera() {
+        try {
+          const videoElement = document.getElementById("videoElement");
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
+          videoElement.srcObject = stream;
+          currentStream = stream;
+          isCameraActive = true;
+
+          document.getElementById("overlay").style.display = "none";
+          showStatus("Camera started", "success");
+          setTimeout(() => hideStatus(), 2000);
+
+          const camera = new Camera(videoElement, {
+            onFrame: async () => {
+              await handsDetector.send({ image: videoElement });
+            },
+            width: 640,
+            height: 480,
+          });
+          camera.start();
+        } catch (err) {
+          console.error("Camera error:", err);
+          showStatus("Failed to access camera", "error");
+        }
+      }
+
+      // Stop camera
+      function stopCamera() {
+        if (currentStream) {
+          currentStream.getTracks().forEach((track) => track.stop());
+          currentStream = null;
+        }
+
+        isCameraActive = false;
+        isContinuousMode = false;
+        document.getElementById("overlay").style.display = "flex";
+        document.getElementById("overlay").textContent = "Camera stopped";
+
+        showStatus("Camera stopped", "success");
+        setTimeout(() => hideStatus(), 2000);
+      }
+
+      // Capture and process sign
+      let handsDetector = null;
+
+      async function setupMediaPipeHands() {
+        handsDetector = new Hands({
+          locateFile: (file) =>
+            `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+        });
+        handsDetector.setOptions({
+          maxNumHands: 1,
+          modelComplexity: 1,
+          minDetectionConfidence: 0.7,
+          minTrackingConfidence: 0.7,
+        });
+
+        let predictionCooldown = false;
+        handsDetector.onResults(async (results) => {
+          if (!isContinuousMode && !manualCaptureRequested) return;
+
+          if (results.multiHandLandmarks.length > 0) {
+            const landmarks = results.multiHandLandmarks[0];
+            const flat = landmarks.map((l) => [l.x, l.y, l.z]);
+
+            if (manualCaptureRequested) {
+              manualCaptureRequested = false;
+            } else {
+              if (predictionCooldown) return;
+              predictionCooldown = true;
+              setTimeout(() => {
+                predictionCooldown = false;
+              }, 1500); // prediction cooldown
+            }
+
+            await predictFromLandmarks(flat);
+          }
+        });
+      }
+
+      async function captureSign() {
+        if (!isCameraActive || !isModelLoaded || !handsDetector) {
+          showStatus("Start the camera and wait for model to load", "error");
+          return;
+        }
+
+        showStatus("Capturing sign...", "loading");
+
+        try {
+          const videoElement = document.getElementById("videoElement");
+          manualCaptureRequested = true;
+          await handsDetector.send({ image: videoElement }); // triggers onResults
+        } catch (err) {
+          console.error("Manual capture error:", err);
+          showStatus("Error capturing sign", "error");
+        }
+      }
+
+      async function predictFromLandmarks(landmarks) {
+        // showStatus("Sending landmarks to backend...", "loading");
+        try {
+          const response = await fetch("http://127.0.0.1:8000/predict", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ landmarks }), // shape: [21,3]
+          });
+
+          const result = await response.json();
+          // if (result.confidence > 0.7) {
+            updateResults({
+              prediction: result.prediction,
+              confidence: result.confidence || 0.99,
+            });
+          // }
+          // updateResults({
+          //   prediction: result.prediction,
+          //   confidence: result.confidence || 0.99,
+          // });
+          hideStatus();
+        } catch (err) {
+          console.error("Prediction error:", err);
+          showStatus("Error contacting backend", "error");
+        }
+      }
+
+      // Toggle continuous mode
+      function toggleContinuous() {
+        isContinuousMode = !isContinuousMode;
+
+        if (isContinuousMode) {
+          showStatus("Continuous mode enabled", "success");
+          continuousCapture();
+        } else {
+          showStatus("Continuous mode disabled", "success");
+        }
+
+        setTimeout(() => hideStatus(), 2000);
+      }
+
+      // Continuous capture loop
+      async function continuousCapture() {
+        if (!isContinuousMode || !isCameraActive) return;
+
+        await captureSign();
+
+        // Continue capturing every 1 seconds
+        setTimeout(continuousCapture, 1500); // edit continuous capture time
+      }
+
+      // Update results in UI
+      function updateResults(result) {
+        const recognizedTextElement = document.getElementById("recognizedText");
+        const confidenceElement = document.getElementById("confidence");
+        const speechOutputElement = document.getElementById("speechOutput");
+
+        // Update recognized text
+        recognizedTextElement.textContent = result.prediction;
+        lastRecognizedText = result.prediction;
+
+        // Update confidence
+        confidenceElement.textContent = `Confidence: ${(
+          result.confidence * 100
+        ).toFixed(1)}%`;
+        confidenceElement.style.display = "inline-block";
+
+        // Update speech output
+        let speechText = result.prediction;
+        if (speechText === "del") {
+          speechText = "delete";
+        } else if (speechText === "nothing") {
+          speechText = "nothing detected";
+        } else if (speechText === "space") {
+          speechText = "space";
+        }
+
+        speechOutputElement.textContent = speechText;
+
+        // Automatically speak the result
+        speak(speechText);
+      }
+
+      // Text-to-speech function
+      function speak(text) {
+        if (text === lastSpokenText) return; // don't repeat same word
+        // lastSpokenText = text;
+
+        if ("speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.5; // speaking speed
+          utterance.pitch = 1.0;
+          utterance.volume = 1.0;
+
+          const voices = speechSynthesis.getVoices();
+          const preferredVoice = voices.find(
+            (voice) =>
+              voice.name.includes("Google") ||
+              voice.name.includes("Microsoft") ||
+              voice.lang.includes("en-US")
+          );
+          if (preferredVoice) utterance.voice = preferredVoice;
+
+          speechSynthesis.speak(utterance);
+        } else {
+          console.warn("Speech synthesis not supported");
+        }
+      }
+
+      // Speak text button function
+      function speakText() {
+        const speechOutput =
+          document.getElementById("speechOutput").textContent;
+        if (speechOutput && speechOutput !== "Speech will appear here...") {
+          speak(speechOutput);
+        }
+      }
+
+      // Utility functions
+      function showStatus(message, type) {
+        const statusElement = document.getElementById("status");
+        statusElement.textContent = message;
+        statusElement.className = `status ${type}`;
+        statusElement.style.display = "block";
+      }
+
+      function hideStatus() {
+        document.getElementById("status").style.display = "none";
+      }
+
+      // Initialize the app when page loads
+      window.addEventListener("load", initializeApp);
+
+      // Load voices for speech synthesis
+      window.speechSynthesis.addEventListener("voiceschanged", function () {
+        console.log("Voices loaded:", speechSynthesis.getVoices().length);
+      });
+    </script>
+  </body>
+</html>
