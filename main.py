@@ -13,7 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = keras.models.load_model("venv/hand_landmarks.keras", compile=False)
+model = keras.models.load_model("hand_landmarks.keras", compile=False)
 labels =  [
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
         'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
