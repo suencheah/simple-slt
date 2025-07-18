@@ -264,6 +264,8 @@
           </div>
 
           <div class="controls">
+            <button onclick="createOverlay()">🎬 Create Overlay</button>
+            <p id="overlayLink" style="margin-top: 10px; font-weight: bold"></p>
             <button class="primary-btn" onclick="startCamera()">
               📹 Start Camera
             </button>
@@ -332,411 +334,446 @@
     </div>
 
     <script>
-      let model = null;
-      let isModelLoaded = false;
-      let isCameraActive = false;
-      let isContinuousMode = false;
-      let currentStream = null;
-      let lastRecognizedText = "";
-      let manualCaptureRequested = false;
-      let lastSpokenText = "";
+          let model = null;
+          let isModelLoaded = false;
+          let isCameraActive = false;
+          let isContinuousMode = false;
+          let currentStream = null;
+          let lastRecognizedText = "";
+          let manualCaptureRequested = false;
+          let lastSpokenText = "";
 
-      // ASL alphabet labels (you may need to adjust based on your model)
-      const aslLabels = [
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-      ];
+          // ASL alphabet labels (you may need to adjust based on your model)
+          const aslLabels = [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            "h",
+            "i",
+            "j",
+            "k",
+            "l",
+            "m",
+            "n",
+            "o",
+            "p",
+            "q",
+            "r",
+            "s",
+            "t",
+            "u",
+            "v",
+            "w",
+            "x",
+            "y",
+            "z",
+          ];
 
-      // Initialize the application
-      async function initializeApp() {
-        showStatus("Loading model & MediaPipe...", "loading");
-        try {
-          await loadModel();
-          await setupMediaPipeHands();
-          showStatus("Ready!", "success");
-          setTimeout(() => hideStatus(), 2000);
-        } catch (err) {
-          console.error("Initialization error:", err);
-          showStatus("Initialization failed", "error");
-        }
-      }
-
-      // Load the TensorFlow model
-      async function loadModel() {
-        try {
-          // Note: The original URL is for TensorFlow Hub (Python)
-          // For web deployment, you'd need to convert the model to TensorFlow.js format
-          // This is a placeholder for the actual model loading
-
-          // Simulating model loading (replace with actual model loading)
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-
-          // For demonstration, we'll create a mock model
-          // In practice, you'd load your converted TensorFlow.js model here
-          model = {
-            /*************  ✨ Windsurf Command ⭐  *************/
-            /**
-             * Asynchronously predicts the American Sign Language (ASL) sign from the given image data.
-             *
-             * This function captures a frame from the video element, resizes it to 224x224 pixels,
-             * and sends it to a backend server for prediction. The server returns the predicted
-             * ASL sign and the confidence level of the prediction.
-             *
-             * @param {ImageData} imageData - The image data to be processed for prediction.
-             * @returns {Promise<Object>} - A promise that resolves to an object containing
-             * the predicted sign and its confidence level.
-             */
-
-            /*******  e6b573c1-79fd-4726-9ae3-0fa03b46bc16  *******/
-            predict: async (imageData) => {
-              // Create canvas to resize and draw image
-              const canvas = document.createElement("canvas");
-              canvas.width = 224;
-              canvas.height = 224;
-              const ctx = canvas.getContext("2d");
-
-              // Draw full video frame into resized canvas
-              ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-              return new Promise((resolve, reject) => {
-                canvas.toBlob((blob) => {
-                  const formData = new FormData();
-                  formData.append("file", blob, "hand.jpg");
-
-                  fetch("https://suencheah-simple-slt.hf.space/predict", {
-                    method: "POST",
-                    body: formData,
-                  })
-                    .then((res) => res.json())
-                    .then((data) => {
-                      resolve({
-                        prediction: data.prediction,
-                        confidence: data.confidence,
-                      });
-                    })
-                    .catch((err) => reject(err));
-                }, "image/jpeg");
-              });
-            },
-          };
-
-          isModelLoaded = true;
-          console.log("Model loaded successfully");
-        } catch (error) {
-          console.error("Error loading model:", error);
-          throw error;
-        }
-      }
-
-      // Mock prediction function (replace with actual model prediction)
-      function mockPrediction() {
-        const randomIndex = Math.floor(Math.random() * aslLabels.length);
-        const confidence = 0.7 + Math.random() * 0.3; // Random confidence between 0.7-1.0
-
-        return {
-          prediction: aslLabels[randomIndex],
-          confidence: confidence,
-        };
-      }
-
-      // Start camera
-      async function startCamera() {
-        try {
-          const videoElement = document.getElementById("videoElement");
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-          });
-          videoElement.srcObject = stream;
-          currentStream = stream;
-          isCameraActive = true;
-
-          document.getElementById("overlay").style.display = "none";
-          showStatus("Camera started", "success");
-          setTimeout(() => hideStatus(), 2000);
-
-          const camera = new Camera(videoElement, {
-            onFrame: async () => {
-              await handsDetector.send({ image: videoElement });
-            },
-            width: 640,
-            height: 480,
-          });
-          camera.start();
-        } catch (err) {
-          console.error("Camera error:", err);
-          showStatus("Failed to access camera", "error");
-        }
-      }
-
-      // Stop camera
-      function stopCamera() {
-        if (currentStream) {
-          currentStream.getTracks().forEach((track) => track.stop());
-          currentStream = null;
-        }
-
-        isCameraActive = false;
-        isContinuousMode = false;
-        document.getElementById("overlay").style.display = "flex";
-        document.getElementById("overlay").textContent = "Camera stopped";
-
-        showStatus("Camera stopped", "success");
-        setTimeout(() => hideStatus(), 2000);
-      }
-
-      // Capture and process sign
-      let handsDetector = null;
-
-      async function setupMediaPipeHands() {
-        handsDetector = new Hands({
-          locateFile: (file) =>
-            `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
-        });
-        handsDetector.setOptions({
-          maxNumHands: 1,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.7,
-          minTrackingConfidence: 0.7,
-        });
-
-        let predictionCooldown = false;
-        handsDetector.onResults(async (results) => {
-          if (!isContinuousMode && !manualCaptureRequested) return;
-
-          if (results.multiHandLandmarks.length > 0) {
-            const landmarks = results.multiHandLandmarks[0];
-            const flat = landmarks.map((l) => [l.x, l.y, l.z]);
-
-            if (manualCaptureRequested) {
-              manualCaptureRequested = false;
-            } else {
-              if (predictionCooldown) return;
-              predictionCooldown = true;
-              setTimeout(() => {
-                predictionCooldown = false;
-              }, 1500); // prediction cooldown
+          // Initialize the application
+          async function initializeApp() {
+            showStatus("Loading model & MediaPipe...", "loading");
+            try {
+              await loadModel();
+              await setupMediaPipeHands();
+              showStatus("Ready!", "success");
+              setTimeout(() => hideStatus(), 2000);
+            } catch (err) {
+              console.error("Initialization error:", err);
+              showStatus("Initialization failed", "error");
             }
-
-            await predictFromLandmarks(flat);
           }
-        });
-      }
 
-      async function captureSign() {
-        if (!isCameraActive || !isModelLoaded || !handsDetector) {
-          showStatus("Start the camera and wait for model to load", "error");
-          return;
-        }
+          // Load the TensorFlow model
+          async function loadModel() {
+            try {
+              // Note: The original URL is for TensorFlow Hub (Python)
+              // For web deployment, you'd need to convert the model to TensorFlow.js format
+              // This is a placeholder for the actual model loading
 
-        showStatus("Capturing sign...", "loading");
+              // Simulating model loading (replace with actual model loading)
+              await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        try {
-          const videoElement = document.getElementById("videoElement");
-          manualCaptureRequested = true;
-          await handsDetector.send({ image: videoElement }); // triggers onResults
-        } catch (err) {
-          console.error("Manual capture error:", err);
-          showStatus("Error capturing sign", "error");
-        }
-      }
+              // For demonstration, we'll create a mock model
+              // In practice, you'd load your converted TensorFlow.js model here
+              model = {
+                /*************  ✨ Windsurf Command ⭐  *************/
+                /**
+                 * Asynchronously predicts the American Sign Language (ASL) sign from the given image data.
+                 *
+                 * This function captures a frame from the video element, resizes it to 224x224 pixels,
+                 * and sends it to a backend server for prediction. The server returns the predicted
+                 * ASL sign and the confidence level of the prediction.
+                 *
+                 * @param {ImageData} imageData - The image data to be processed for prediction.
+                 * @returns {Promise<Object>} - A promise that resolves to an object containing
+                 * the predicted sign and its confidence level.
+                 */
 
-      async function predictFromLandmarks(landmarks) {
-        try {
-          const response = await fetch(
-            "https://suencheah-simple-slt.hf.space/predict",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ landmarks }), // shape: [21,3]
+                /*******  e6b573c1-79fd-4726-9ae3-0fa03b46bc16  *******/
+                predict: async (imageData) => {
+                  // Create canvas to resize and draw image
+                  const canvas = document.createElement("canvas");
+                  canvas.width = 224;
+                  canvas.height = 224;
+                  const ctx = canvas.getContext("2d");
+
+                  // Draw full video frame into resized canvas
+                  ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+                  return new Promise((resolve, reject) => {
+                    canvas.toBlob((blob) => {
+                      const formData = new FormData();
+                      formData.append("file", blob, "hand.jpg");
+
+                      fetch("https://suencheah-simple-slt.hf.space/predict", {
+                        method: "POST",
+                        body: formData,
+                      })
+                        .then((res) => res.json())
+                        .then((data) => {
+                          resolve({
+                            prediction: data.prediction,
+                            confidence: data.confidence,
+                          });
+                        })
+                        .catch((err) => reject(err));
+                    }, "image/jpeg");
+                  });
+                },
+              };
+
+              isModelLoaded = true;
+              console.log("Model loaded successfully");
+            } catch (error) {
+              console.error("Error loading model:", error);
+              throw error;
             }
-          );
+          }
 
-          const result = await response.json();
-          // if (result.confidence > 0.7) {
-          updateResults({
-            prediction: result.prediction,
-            confidence: result.confidence || 0.99,
+          // Overlay
+          let currentSessionId = null;
+
+          async function createOverlay() {
+            try {
+              const res = await fetch(
+                "https://suencheah-simple-slt.hf.space/create-session"
+              );
+              const data = await res.json();
+              currentSessionId = data.session_id;
+
+              const overlayLink = `https://suencheah-simple-slt.hf.space/overlay/${currentSessionId}`;
+              document.getElementById("overlayLink").innerHTML = `
+          Overlay URL: <a href="${overlayLink}" target="_blank">${overlayLink}</a>
+          <br>Paste this in OBS as a browser source (1920x100 suggested).
+        `;
+            } catch (err) {
+              alert("Failed to create overlay session.");
+              console.error(err);
+            }
+          }
+
+          // Mock prediction function (replace with actual model prediction)
+          function mockPrediction() {
+            const randomIndex = Math.floor(Math.random() * aslLabels.length);
+            const confidence = 0.7 + Math.random() * 0.3; // Random confidence between 0.7-1.0
+
+            return {
+              prediction: aslLabels[randomIndex],
+              confidence: confidence,
+            };
+          }
+
+          // Start camera
+          async function startCamera() {
+            try {
+              const videoElement = document.getElementById("videoElement");
+              const stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+              });
+              videoElement.srcObject = stream;
+              currentStream = stream;
+              isCameraActive = true;
+
+              document.getElementById("overlay").style.display = "none";
+              showStatus("Camera started", "success");
+              setTimeout(() => hideStatus(), 2000);
+
+              const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                  await handsDetector.send({ image: videoElement });
+                },
+                width: 640,
+                height: 480,
+              });
+              camera.start();
+            } catch (err) {
+              console.error("Camera error:", err);
+              showStatus("Failed to access camera", "error");
+            }
+          }
+
+          // Stop camera
+          function stopCamera() {
+            if (currentStream) {
+              currentStream.getTracks().forEach((track) => track.stop());
+              currentStream = null;
+            }
+
+            isCameraActive = false;
+            isContinuousMode = false;
+            document.getElementById("overlay").style.display = "flex";
+            document.getElementById("overlay").textContent = "Camera stopped";
+
+            showStatus("Camera stopped", "success");
+            setTimeout(() => hideStatus(), 2000);
+          }
+
+          // Capture and process sign
+          let handsDetector = null;
+
+          async function setupMediaPipeHands() {
+            handsDetector = new Hands({
+              locateFile: (file) =>
+                `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+            });
+            handsDetector.setOptions({
+              maxNumHands: 1,
+              modelComplexity: 1,
+              minDetectionConfidence: 0.7,
+              minTrackingConfidence: 0.7,
+            });
+
+            let predictionCooldown = false;
+            handsDetector.onResults(async (results) => {
+              if (!isContinuousMode && !manualCaptureRequested) return;
+
+              if (results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const flat = landmarks.map((l) => [l.x, l.y, l.z]);
+
+                if (manualCaptureRequested) {
+                  manualCaptureRequested = false;
+                } else {
+                  if (predictionCooldown) return;
+                  predictionCooldown = true;
+                  setTimeout(() => {
+                    predictionCooldown = false;
+                  }, 1500); // prediction cooldown
+                }
+
+                await predictFromLandmarks(flat);
+              }
+            });
+          }
+
+          async function captureSign() {
+            if (!isCameraActive || !isModelLoaded || !handsDetector) {
+              showStatus("Start the camera and wait for model to load", "error");
+              return;
+            }
+
+            showStatus("Capturing sign...", "loading");
+
+            try {
+              const videoElement = document.getElementById("videoElement");
+              manualCaptureRequested = true;
+              await handsDetector.send({ image: videoElement }); // triggers onResults
+            } catch (err) {
+              console.error("Manual capture error:", err);
+              showStatus("Error capturing sign", "error");
+            }
+          }
+
+          async function predictFromLandmarks(landmarks) {
+            try {
+              const response = await fetch(
+                "https://suencheah-simple-slt.hf.space/predict",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ landmarks }), // shape: [21,3]
+                }
+              );
+
+              const result = await response.json();
+              // if (result.confidence > 0.7) {
+              updateResults({
+                prediction: result.prediction,
+                confidence: result.confidence || 0.99,
+              });
+              // }
+              // updateResults({
+              //   prediction: result.prediction,
+              //   confidence: result.confidence || 0.99,
+              // });
+              hideStatus();
+            } catch (err) {
+              console.error("Prediction error:", err);
+              showStatus("Error contacting backend", "error");
+            }
+          }
+
+          // Toggle continuous mode
+          function toggleContinuous() {
+            isContinuousMode = !isContinuousMode;
+
+            if (isContinuousMode) {
+              showStatus("Continuous mode enabled", "success");
+              continuousCapture();
+            } else {
+              showStatus("Continuous mode disabled", "success");
+            }
+
+            setTimeout(() => hideStatus(), 2000);
+          }
+
+          // Continuous capture loop
+          async function continuousCapture() {
+            if (!isContinuousMode || !isCameraActive) return;
+
+            await captureSign();
+
+            // Continue capturing every 1 seconds
+            setTimeout(continuousCapture, 1500); // edit continuous capture time
+          }
+
+          // Update results in UI
+          async function updateResults(result) {
+            const recognizedTextElement = document.getElementById("recognizedText");
+            const confidenceElement = document.getElementById("confidence");
+            const speechOutputElement = document.getElementById("speechOutput");
+
+            // Update recognized text
+            recognizedTextElement.textContent = result.prediction;
+            lastRecognizedText = result.prediction;
+
+            // Update confidence
+            confidenceElement.textContent = `Confidence: ${(
+              result.confidence * 100
+            ).toFixed(1)}%`;
+            confidenceElement.style.display = "inline-block";
+
+            // Update speech output
+            let speechText = result.prediction;
+
+            speechOutputElement.textContent = speechText;
+
+            // Automatically speak the result
+            speak(speechText);
+
+            // Add to translation history
+            const historyList = document.getElementById("translationHistory");
+            const listItem = document.createElement("li");
+            const timestamp = new Date().toLocaleTimeString();
+
+            // Create text content
+            const textSpan = document.createElement("span");
+            textSpan.textContent = `${timestamp}: ${result.prediction}`;
+
+            // Create speak button
+            const speakBtn = document.createElement("button");
+            speakBtn.textContent = "🔊";
+            speakBtn.style.marginLeft = "10px";
+            speakBtn.onclick = () => speakAgain(result.prediction);
+
+            // Append to list item
+            listItem.appendChild(textSpan);
+            listItem.appendChild(speakBtn);
+            historyList.insertBefore(listItem, historyList.firstChild);
+
+            // Limit to last 20 entries
+            if (historyList.children.length > 20) {
+              historyList.removeChild(historyList.lastChild);
+            }
+
+            // 🔄 Update overlay session
+            if (currentSessionId) {
+              try {
+                await fetch(`https://suencheah-simple-slt.hf.space/update/${currentSessionId}`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ prediction: speechText })
+                });
+              } catch (e) {
+                console.warn("Overlay update failed", e);
+              }
+            }
+          }
+
+          // Text-to-speech function
+          function speak(text) {
+            if ("speechSynthesis" in window && text !== lastSpokenText) {
+              window.speechSynthesis.cancel(); // optional
+              const utterance = new SpeechSynthesisUtterance(text);
+              utterance.lang = "en-US";
+              window.speechSynthesis.speak(utterance);
+              lastSpokenText = text;
+            } else {
+              console.warn("Speech synthesis not supported");
+            }
+          }
+          function speakAgain(text) {
+            if (!("speechSynthesis" in window)) {
+              console.warn("Speech synthesis not supported");
+              return;
+            }
+
+            if (window.speechSynthesis.speaking) {
+              console.log("Still speaking. Retrying in 150ms...");
+              setTimeout(() => speakAgain(text), 150);
+              return;
+            }
+
+            window.speechSynthesis.cancel(); // optional, in case something queued up
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = "en-US";
+            window.speechSynthesis.speak(utterance);
+            lastSpokenText = text;
+          }
+
+          // Speak text button function
+          function speakTextAgain() {
+            const speechOutput =
+              document.getElementById("speechOutput").textContent;
+            if (speechOutput && speechOutput !== "Speech will appear here...") {
+              speakAgain(speechOutput);
+              console.log("should be speaking: ", speechOutput);
+            }
+          }
+
+          // Utility functions
+          function showStatus(message, type) {
+            const statusElement = document.getElementById("status");
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+            statusElement.style.display = "block";
+          }
+
+          function hideStatus() {
+            document.getElementById("status").style.display = "none";
+          }
+
+          // Initialize the app when page loads
+          window.addEventListener("load", initializeApp);
+
+          // Load voices for speech synthesis
+          window.speechSynthesis.addEventListener("voiceschanged", function () {
+            console.log("Voices loaded:", speechSynthesis.getVoices().length);
           });
-          // }
-          // updateResults({
-          //   prediction: result.prediction,
-          //   confidence: result.confidence || 0.99,
-          // });
-          hideStatus();
-        } catch (err) {
-          console.error("Prediction error:", err);
-          showStatus("Error contacting backend", "error");
-        }
-      }
-
-      // Toggle continuous mode
-      function toggleContinuous() {
-        isContinuousMode = !isContinuousMode;
-
-        if (isContinuousMode) {
-          showStatus("Continuous mode enabled", "success");
-          continuousCapture();
-        } else {
-          showStatus("Continuous mode disabled", "success");
-        }
-
-        setTimeout(() => hideStatus(), 2000);
-      }
-
-      // Continuous capture loop
-      async function continuousCapture() {
-        if (!isContinuousMode || !isCameraActive) return;
-
-        await captureSign();
-
-        // Continue capturing every 1 seconds
-        setTimeout(continuousCapture, 1500); // edit continuous capture time
-      }
-
-      // Update results in UI
-      function updateResults(result) {
-        const recognizedTextElement = document.getElementById("recognizedText");
-        const confidenceElement = document.getElementById("confidence");
-        const speechOutputElement = document.getElementById("speechOutput");
-
-        // Update recognized text
-        recognizedTextElement.textContent = result.prediction;
-        lastRecognizedText = result.prediction;
-
-        // Update confidence
-        confidenceElement.textContent = `Confidence: ${(
-          result.confidence * 100
-        ).toFixed(1)}%`;
-        confidenceElement.style.display = "inline-block";
-
-        // Update speech output
-        let speechText = result.prediction;
-
-        speechOutputElement.textContent = speechText;
-
-        // Automatically speak the result
-        speak(speechText);
-
-        // Add to translation history
-        const historyList = document.getElementById("translationHistory");
-        const listItem = document.createElement("li");
-        const timestamp = new Date().toLocaleTimeString();
-
-        // Create text content
-        const textSpan = document.createElement("span");
-        textSpan.textContent = `${timestamp}: ${result.prediction}`;
-
-        // Create speak button
-        const speakBtn = document.createElement("button");
-        speakBtn.textContent = "🔊";
-        speakBtn.style.marginLeft = "10px";
-        speakBtn.onclick = () => speakAgain(result.prediction);
-
-        // Append to list item
-        listItem.appendChild(textSpan);
-        listItem.appendChild(speakBtn);
-        historyList.insertBefore(listItem, historyList.firstChild);
-
-        // Limit to last 20 entries
-        if (historyList.children.length > 20) {
-          historyList.removeChild(historyList.lastChild);
-        }
-      }
-
-      // Text-to-speech function
-      function speak(text) {
-        if ("speechSynthesis" in window && text !== lastSpokenText) {
-          window.speechSynthesis.cancel(); // optional
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = "en-US";
-          window.speechSynthesis.speak(utterance);
-          lastSpokenText = text;
-        } else {
-          console.warn("Speech synthesis not supported");
-        }
-      }
-      function speakAgain(text) {
-        if (!("speechSynthesis" in window)) {
-          console.warn("Speech synthesis not supported");
-          return;
-        }
-
-        if (window.speechSynthesis.speaking) {
-          console.log("Still speaking. Retrying in 150ms...");
-          setTimeout(() => speakAgain(text), 150);
-          return;
-        }
-
-        window.speechSynthesis.cancel(); // optional, in case something queued up
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = "en-US";
-        window.speechSynthesis.speak(utterance);
-        lastSpokenText = text;
-      }
-
-      // Speak text button function
-      function speakTextAgain() {
-        const speechOutput =
-          document.getElementById("speechOutput").textContent;
-        if (speechOutput && speechOutput !== "Speech will appear here...") {
-          speakAgain(speechOutput);
-          console.log("should be speaking: ", speechOutput);
-        }
-      }
-
-      // Utility functions
-      function showStatus(message, type) {
-        const statusElement = document.getElementById("status");
-        statusElement.textContent = message;
-        statusElement.className = `status ${type}`;
-        statusElement.style.display = "block";
-      }
-
-      function hideStatus() {
-        document.getElementById("status").style.display = "none";
-      }
-
-      // Initialize the app when page loads
-      window.addEventListener("load", initializeApp);
-
-      // Load voices for speech synthesis
-      window.speechSynthesis.addEventListener("voiceschanged", function () {
-        console.log("Voices loaded:", speechSynthesis.getVoices().length);
-      });
     </script>
   </body>
 </html>

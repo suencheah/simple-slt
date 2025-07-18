@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      color: white;
+      font-size: 48px;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlayText"></div>
+
+  <script>
+    const sessionId = window.location.pathname.split("/").pop();
+    const backendBase = "http://127.0.0.1:8000";
+
+    async function fetchLatest() {
+      try {
+        const res = await fetch(`${backendBase}/latest/${sessionId}`);
+        const data = await res.json();
+        document.getElementById("overlayText").textContent = data.prediction || "";
+      } catch (e) {
+        console.error("Fetch failed", e);
+      }
+    }
+
+    setInterval(fetchLatest, 1000); // Poll every second
+  </script>
+</body>
+</html>
