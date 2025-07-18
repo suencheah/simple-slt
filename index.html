@@ -221,6 +221,19 @@
         margin: 5px 0;
       }
 
+      #translationHistory li {
+        margin: 4px 0;
+        display: flex;
+        align-items: center;
+      }
+
+      #translationHistory button {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
       @media (max-width: 768px) {
         #videoElement {
           width: 100%;
@@ -296,6 +309,14 @@
             </button>
           </div>
         </div>
+      </div>
+
+      <div id="historySection" style="margin-top: 20px">
+        <h3>📝 Translation History</h3>
+        <ul
+          id="translationHistory"
+          style="list-style-type: none; padding-left: 0"
+        ></ul>
       </div>
 
       <div class="feature-info">
@@ -629,6 +650,31 @@
 
         // Automatically speak the result
         speak(speechText);
+
+        // Add to translation history
+        const historyList = document.getElementById("translationHistory");
+        const listItem = document.createElement("li");
+        const timestamp = new Date().toLocaleTimeString();
+
+        // Create text content
+        const textSpan = document.createElement("span");
+        textSpan.textContent = `${timestamp}: ${result.prediction}`;
+
+        // Create speak button
+        const speakBtn = document.createElement("button");
+        speakBtn.textContent = "🔊";
+        speakBtn.style.marginLeft = "10px";
+        speakBtn.onclick = () => speakAgain(result.prediction);
+
+        // Append to list item
+        listItem.appendChild(textSpan);
+        listItem.appendChild(speakBtn);
+        historyList.insertBefore(listItem, historyList.firstChild);
+
+        // Limit to last 20 entries
+        if (historyList.children.length > 20) {
+          historyList.removeChild(historyList.lastChild);
+        }
       }
 
       // Text-to-speech function
