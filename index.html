@@ -31,7 +31,7 @@
         border-radius: 20px;
         padding: 30px;
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-        max-width: 900px;
+        max-width: 1300px;
         width: 100%;
       }
 
@@ -51,6 +51,7 @@
         flex-direction: column;
         align-items: center;
         margin-bottom: 30px;
+        width: 60%;
       }
 
       .camera-container {
@@ -137,10 +138,12 @@
 
       .results-section {
         margin-top: 30px;
+        width: 35%;
+        margin-left: 20px;
       }
 
       .result-card {
-        background: #f8f9fa;
+        background: #ebedf5;
         border-radius: 15px;
         padding: 20px;
         margin: 10px 0;
@@ -238,57 +241,60 @@
     <div class="container">
       <h1>🤟 Sign Language to Speech Converter</h1>
 
-      <div class="camera-section">
-        <div class="camera-container">
-          <video id="videoElement" autoplay muted></video>
-          <div class="overlay" id="overlay">Click "Start Camera" to begin</div>
-        </div>
-
-        <div class="controls">
-          <button class="primary-btn" onclick="startCamera()">
-            📹 Start Camera
-          </button>
-          <button class="secondary-btn" onclick="captureSign()">
-            ✋ Capture Sign
-          </button>
-          <button class="primary-btn" onclick="toggleContinuous()">
-            🔄 Toggle Continuous
-          </button>
-          <button class="danger-btn" onclick="stopCamera()">
-            ⏹️ Stop Camera
-          </button>
-        </div>
-      </div>
-
-      <div id="status" class="status loading" style="display: none">
-        Loading model...
-      </div>
-
-      <div class="results-section">
-        <div class="result-card">
-          <h3>🎤 Recognized Sign:</h3>
-          <div id="recognizedText" class="result-text">
-            Ready to recognize signs...
+      <div style="display: flex">
+        <div class="camera-section">
+          <div class="camera-container">
+            <video id="videoElement" autoplay muted></video>
+            <div class="overlay" id="overlay">
+              Click "Start Camera" to begin
+            </div>
           </div>
-          <div
-            id="confidence"
-            class="prediction-confidence"
-            style="display: none"
-          ></div>
+
+          <div class="controls">
+            <button class="primary-btn" onclick="startCamera()">
+              📹 Start Camera
+            </button>
+            <button class="secondary-btn" onclick="captureSign()">
+              ✋ Capture Sign
+            </button>
+            <button class="primary-btn" onclick="toggleContinuous()">
+              🔄 Toggle Continuous
+            </button>
+            <button class="danger-btn" onclick="stopCamera()">
+              ⏹️ Stop Camera
+            </button>
+          </div>
         </div>
 
-        <div class="result-card">
-          <h3>💬 Speech Output:</h3>
-          <div id="speechOutput" class="result-text">
-            Speech will appear here...
+        <div class="results-section">
+          <div id="status" class="status loading" style="display: none">
+            Loading model...
           </div>
-          <button
-            class="secondary-btn"
-            onclick="speakText()"
-            style="margin-top: 10px"
-          >
-            🔊 Speak Again
-          </button>
+          <div class="result-card">
+            <h3>🎤 Recognized Sign:</h3>
+            <div id="recognizedText" class="result-text">
+              Ready to recognize signs...
+            </div>
+            <div
+              id="confidence"
+              class="prediction-confidence"
+              style="display: none"
+            ></div>
+          </div>
+
+          <div class="result-card">
+            <h3>💬 Speech Output:</h3>
+            <div id="speechOutput" class="result-text">
+              Speech will appear here...
+            </div>
+            <button
+              class="secondary-btn"
+              onclick="speakTextAgain()"
+              style="margin-top: 10px"
+            >
+              🔊 Speak Again
+            </button>
+          </div>
         </div>
       </div>
 
@@ -548,20 +554,22 @@
       }
 
       async function predictFromLandmarks(landmarks) {
-        // showStatus("Sending landmarks to backend...", "loading");
         try {
-          const response = await fetch("https://suencheah-simple-slt.hf.space/predict", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ landmarks }), // shape: [21,3]
-          });
+          const response = await fetch(
+            "https://suencheah-simple-slt.hf.space/predict",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ landmarks }), // shape: [21,3]
+            }
+          );
 
           const result = await response.json();
           // if (result.confidence > 0.7) {
-            updateResults({
-              prediction: result.prediction,
-              confidence: result.confidence || 0.99,
-            });
+          updateResults({
+            prediction: result.prediction,
+            confidence: result.confidence || 0.99,
+          });
           // }
           // updateResults({
           //   prediction: result.prediction,
@@ -616,13 +624,6 @@
 
         // Update speech output
         let speechText = result.prediction;
-        if (speechText === "del") {
-          speechText = "delete";
-        } else if (speechText === "nothing") {
-          speechText = "nothing detected";
-        } else if (speechText === "space") {
-          speechText = "space";
-        }
 
         speechOutputElement.textContent = speechText;
 
@@ -632,36 +633,42 @@
 
       // Text-to-speech function
       function speak(text) {
-        if (text === lastSpokenText) return; // don't repeat same word
-        // lastSpokenText = text;
-
-        if ("speechSynthesis" in window) {
+        if ("speechSynthesis" in window && text !== lastSpokenText) {
+          window.speechSynthesis.cancel(); // optional
           const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 1.5; // speaking speed
-          utterance.pitch = 1.0;
-          utterance.volume = 1.0;
-
-          const voices = speechSynthesis.getVoices();
-          const preferredVoice = voices.find(
-            (voice) =>
-              voice.name.includes("Google") ||
-              voice.name.includes("Microsoft") ||
-              voice.lang.includes("en-US")
-          );
-          if (preferredVoice) utterance.voice = preferredVoice;
-
-          speechSynthesis.speak(utterance);
+          utterance.lang = "en-US";
+          window.speechSynthesis.speak(utterance);
+          lastSpokenText = text;
         } else {
           console.warn("Speech synthesis not supported");
         }
       }
+      function speakAgain(text) {
+        if (!("speechSynthesis" in window)) {
+          console.warn("Speech synthesis not supported");
+          return;
+        }
+
+        if (window.speechSynthesis.speaking) {
+          console.log("Still speaking. Retrying in 150ms...");
+          setTimeout(() => speakAgain(text), 150);
+          return;
+        }
+
+        window.speechSynthesis.cancel(); // optional, in case something queued up
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "en-US";
+        window.speechSynthesis.speak(utterance);
+        lastSpokenText = text;
+      }
 
       // Speak text button function
-      function speakText() {
+      function speakTextAgain() {
         const speechOutput =
           document.getElementById("speechOutput").textContent;
         if (speechOutput && speechOutput !== "Speech will appear here...") {
-          speak(speechOutput);
+          speakAgain(speechOutput);
+          console.log("should be speaking: ", speechOutput);
         }
       }
 
